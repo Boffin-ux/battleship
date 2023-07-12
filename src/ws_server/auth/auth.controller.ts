@@ -20,7 +20,13 @@ export class AuthController implements IAuthControl {
 
     if (user) {
       if (user.password === password) {
-        return { type, data: user, id: socketId };
+        const updateUser = this.usersDb.updateUser({
+          ...userData,
+          socketId,
+        });
+        return updateUser
+          ? { type, data: updateUser, id: updateUser.socketId }
+          : { type, data: user, id: user.socketId };
       }
       const errorText = MESSAGE.INVALID_PASSWORD;
       const getErr = this.sendErr({ name, index, errorText });

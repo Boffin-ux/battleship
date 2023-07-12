@@ -27,4 +27,12 @@ export class AuthService implements IAuthService {
     this.users.push(userData);
     return userData;
   }
+
+  updateUser(userData: IUserData): IUserData | undefined {
+    const user = this.getUser(userData.name);
+    if (user) {
+      user.socketId = userData.socketId;
+    }
+    return this.getUser(userData.name);
+  }
 }
