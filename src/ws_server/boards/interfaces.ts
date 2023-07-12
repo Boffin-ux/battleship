@@ -1,9 +1,26 @@
+import { ShotStatus } from './constants';
+
 interface IBoardsService {
   getBoard(gameId: string): IBoardsData | undefined;
   createBoard(data: IBoardsData): IBoardsData | undefined;
   updateBoard(gameId: string, player: IPlayer): IBoardsData | undefined;
-  deleteBoard(gameId: string): void;
+  deleteBoard(gameId: string): boolean;
   getEnemyId(gameId: string, playerId: string): string | undefined;
+  getPlayerShips(gameId: string, playerId: string): IPlayer | undefined;
+  checkPosition(
+    gameId: string,
+    playerId: string,
+    position: IPosition,
+  ): IDamageShips | undefined;
+  damageShip(
+    gameId: string,
+    playerId: string,
+    position: IPosition,
+  ): IDamageShips | undefined;
+  createGameShots(data: IShotsData): IShotsData;
+  updateGameShots(gameId: string, player: IPlayerShots): IShotsData | undefined;
+  getGameShots(gameId: string): IShotsData | undefined;
+  deleteGameShots(gameId: string): boolean;
 }
 
 type TBoardsData = IStartGameData | IShipsData | ITurnData;
@@ -17,6 +34,7 @@ interface IBoards {
 interface IBoardsData {
   gameId: string;
   players: IPlayer[];
+  turnPlayerId: string;
 }
 
 interface IShipsData {
@@ -25,25 +43,29 @@ interface IShipsData {
   indexPlayer: string;
 }
 
-enum sizeShips {
-  'small',
-  'medium',
-  'large',
-  'huge',
+interface IPosition {
+  x: number;
+  y: number;
 }
 
+type TSizeShips = 'small' | 'medium' | 'large' | 'huge';
+
 interface IShips {
-  position: {
-    x: number;
-    y: number;
-  };
+  position: IPosition;
   direction: boolean;
   length: number;
-  type: sizeShips;
+  type: TSizeShips;
+}
+
+interface IDamageShips {
+  position: IPosition[];
+  direction: boolean;
+  length: number;
 }
 
 interface IPlayer {
   ships: IShips[];
+  damageShips: IDamageShips[];
   indexPlayer: string;
   socketId: string;
 }
@@ -76,6 +98,18 @@ interface IAttack {
   indexPlayer: string;
 }
 
+interface IAttackData {
+  position: IPosition;
+  currentPlayer: string;
+  status: string;
+}
+
+interface IAttackAnswer {
+  type: string;
+  data: IAttackData | IAttackData[];
+  id: string;
+}
+
 interface IRandomAttack {
   gameId: string;
   indexPlayer: string;
@@ -84,6 +118,25 @@ interface IRandomAttack {
 interface IBoardsControl {
   run(type: string, data: IBoardsData, socketId: string): void;
 }
+
+type TShotStatus = ShotStatus.SHOT | ShotStatus.MISS | ShotStatus.KILLED;
+
+interface IShotsShips {
+  position: IPosition;
+  status: TShotStatus;
+}
+
+interface IPlayerShots {
+  playerId: string;
+  shots: IShotsShips[];
+}
+
+interface IShotsData {
+  gameId: string;
+  players: IPlayerShots[];
+}
+
+type TAnswerReduce = IAttackAnswer[] | IStartGame[] | ITurn[] | IAttackAnswer[];
 
 export {
   IBoardsData,
@@ -96,4 +149,14 @@ export {
   IRandomAttack,
   IBoardsService,
   IBoards,
+  IShips,
+  IPosition,
+  IAttackAnswer,
+  IAttackData,
+  IDamageShips,
+  IShotsData,
+  IPlayerShots,
+  IShotsShips,
+  TShotStatus,
+  TAnswerReduce,
 };
