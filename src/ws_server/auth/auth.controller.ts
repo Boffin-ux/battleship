@@ -1,6 +1,6 @@
-import { IAuth, IAuthControl, IUserData, IUserErrData } from './interfaces';
+import { IAuthControl, IUserData, IUserErrData } from './interfaces';
 import { AuthService } from './auth.service';
-import { MESSAGE } from '../constants';
+import { Commands, MESSAGE } from '../constants';
 import { v4 as uuidv4 } from 'uuid';
 import { TUsersData } from './interfaces';
 import { IRoom } from '../room/interfaces';
@@ -14,9 +14,11 @@ export class AuthController implements IAuthControl {
     this.updateRoom = updateRoom;
   }
 
-  auth(type: string, userData: IUserData, socketId: string): IAuth | IRoom[] {
+  auth(type: string, userData: IUserData, socketId: string) {
     const { name, password, index } = userData;
     const user = this.usersDb.getUser(name);
+    const winners = this.usersDb.getWinners();
+    const updateWinners = { type: Commands.UPDATE_WINNERS, data: winners };
 
     if (user) {
       if (user.password === password) {
@@ -24,10 +26,14 @@ export class AuthController implements IAuthControl {
           ...userData,
           socketId,
         });
-        return updateUser
+
+        const currentUser = updateUser
           ? { type, data: updateUser, id: updateUser.socketId }
           : { type, data: user, id: user.socketId };
+
+        return winners ? [currentUser, updateWinners] : currentUser;
       }
+
       const errorText = MESSAGE.INVALID_PASSWORD;
       const getErr = this.sendErr({ name, index, errorText });
       const regData = { type, data: getErr, id: socketId };
@@ -36,7 +42,9 @@ export class AuthController implements IAuthControl {
     const createUser: TUsersData = this.signUp(userData, socketId);
     const regData = { type, data: createUser, id: socketId };
 
-    return [regData, this.updateRoom];
+    return winners
+      ? [regData, this.updateRoom, updateWinners]
+      : [regData, this.updateRoom];
   }
 
   private sendErr({ name, index, errorText }: IUserErrData) {
@@ -52,6 +60,8 @@ export class AuthController implements IAuthControl {
     const userId: string = uuidv4();
 
     if (this.validateUser(userData)) {
+      this.usersDb.addWinner({ name: userData.name, wins: 0 });
+
       return this.usersDb.createUser({
         ...userData,
         index: userId,

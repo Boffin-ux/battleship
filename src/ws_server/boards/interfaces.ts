@@ -6,12 +6,6 @@ interface IBoardsService {
   updateBoard(gameId: string, player: IPlayer): IBoardsData | undefined;
   deleteBoard(gameId: string): boolean;
   getEnemyId(gameId: string, playerId: string): string | undefined;
-  getPlayerShips(gameId: string, playerId: string): IPlayer | undefined;
-  checkPosition(
-    gameId: string,
-    playerId: string,
-    position: IPosition,
-  ): IDamageShips | undefined;
   damageShip(
     gameId: string,
     playerId: string,
@@ -84,6 +78,16 @@ interface IStartGame {
   id: string;
 }
 
+interface IFinishGameData {
+  winPlayer: string;
+}
+
+interface IFinishGame {
+  type: string;
+  data: IFinishGameData;
+  id: string;
+}
+
 interface ITurnData {
   currentPlayer: string;
 }
@@ -142,6 +146,7 @@ interface IShotsData {
 }
 
 type TAnswerReduce = IAttackAnswer[] | IStartGame[] | ITurn[] | IAttackAnswer[];
+type TSendResult = IFinishGame[] | IStartGame[];
 
 export {
   IBoardsData,
@@ -164,4 +169,6 @@ export {
   TShotStatus,
   TAnswerReduce,
   TBoardsControlData,
+  IFinishGame,
+  TSendResult,
 };

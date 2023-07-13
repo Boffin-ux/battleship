@@ -1,18 +1,20 @@
-import { IAuthService, IUserData } from './interfaces';
+import { IAuthService, IUserData, IWinnersData } from './interfaces';
 
 export class AuthService implements IAuthService {
   private users: IUserData[];
+  private winners: IWinnersData[];
 
   constructor() {
     this.users = [];
+    this.winners = [];
   }
 
-  getUser(userName: string): IUserData | undefined {
-    return this.users.find((user) => user.name === userName);
+  getUser(name: string): IUserData | undefined {
+    return this.users.find((user) => user.name === name);
   }
 
-  getAllUser(): IUserData[] {
-    return this.users;
+  getUserById(playerId: string): IUserData | undefined {
+    return this.users.find((user) => user.index === playerId);
   }
 
   getUserBySocket(sockedId: string): IUserData | undefined {
@@ -34,5 +36,26 @@ export class AuthService implements IAuthService {
       user.socketId = userData.socketId;
     }
     return this.getUser(userData.name);
+  }
+
+  getWinners() {
+    const winners = this.winners
+      .filter(({ wins }) => wins > 0)
+      .sort((winFirst, winLast) => winLast.wins - winFirst.wins);
+    return winners.length > 0 && winners;
+  }
+
+  addWinner(data: IWinnersData): IWinnersData {
+    this.winners.push(data);
+    return data;
+  }
+
+  updateWinner(playerId: string): false | IWinnersData[] {
+    const user = this.getUserById(playerId);
+    this.winners = this.winners.map(({ name, wins }) =>
+      name === user?.name ? { name, wins: wins + 1 } : { name, wins },
+    );
+
+    return this.getWinners();
   }
 }

@@ -1,3 +1,4 @@
+import { AuthService } from '../auth/auth.service';
 import { Commands } from '../constants';
 import { BoardsService } from './boards.service';
 import { ShotStatus } from './constants';
@@ -16,13 +17,16 @@ import {
   IAttackData,
   IDamageShips,
   TBoardsControlData,
+  IFinishGame,
 } from './interfaces';
 
 export class BoardsController implements IBoardsControl {
   private boards: BoardsService;
+  private users: AuthService;
 
-  constructor() {
+  constructor(usersDb: AuthService) {
     this.boards = new BoardsService();
+    this.users = usersDb;
   }
 
   run(type: string, data: TBoardsControlData, socketId: string) {
@@ -64,11 +68,20 @@ export class BoardsController implements IBoardsControl {
       if (getBoard.turnPlayerId !== enemyId) {
         const getShots = this.shot(position, gameId, enemyId, indexPlayer);
         const shots = this.answerAttack(getBoard.players, getShots);
+        const availableShips = this.boards.availableShips(gameId, enemyId);
         let turns = this.turn(getBoard.players, enemyId);
 
         if (getShots instanceof Array || getShots.status === ShotStatus.SHOT) {
-          turns = this.turn(getBoard.players, indexPlayer);
+          if (!availableShips) {
+            const finish = this.finishGame(
+              gameId,
+              getBoard.players,
+              indexPlayer,
+            );
+            return [...shots, ...finish];
+          }
 
+          turns = this.turn(getBoard.players, indexPlayer);
           this.boards.updateTurn(gameId, indexPlayer);
           return [...shots, ...turns];
         }
@@ -272,11 +285,31 @@ export class BoardsController implements IBoardsControl {
     return this.boards.updateBoard(gameId, player);
   }
 
+  private finishGame(gameId: string, players: IPlayer[], playerId: string) {
+    const type = Commands.FINISH;
+    const data = { winPlayer: playerId };
+    this.boards.deleteBoard(gameId);
+    this.boards.deleteGameShots(gameId);
+    this.users.updateWinner(playerId);
+
+    const winners = this.users.getWinners();
+    const updateWinners = { type: Commands.UPDATE_WINNERS, data: winners };
+
+    const finish = players.reduce<IFinishGame[]>((acc, { socketId }) => {
+      const player = { type, data, id: socketId };
+      acc.push(player);
+      return acc;
+    }, []);
+
+    return winners ? [...finish, updateWinners] : finish;
+  }
+
   private startGame(players: IPlayer[]): IStartGame[] {
+    const type = Commands.START_GAME;
     return players.reduce<IStartGame[]>(
       (acc, { ships, indexPlayer, socketId }) => {
         const data = { ships, indexPlayer };
-        const player = { type: Commands.START_GAME, data, id: socketId };
+        const player = { type, data, id: socketId };
 
         acc.push(player);
         return acc;
@@ -286,22 +319,25 @@ export class BoardsController implements IBoardsControl {
   }
 
   private answerAttack(players: IPlayer[], data: IAttackData | IAttackData[]) {
+    const type = Commands.ATTACK;
     return players.reduce<IAttackAnswer[]>((acc, { socketId }) => {
       if (data instanceof Array) {
         data.map((ship) => {
-          acc.push({ type: Commands.ATTACK, data: ship, id: socketId });
+          acc.push({ type, data: ship, id: socketId });
         });
       } else {
-        acc.push({ type: Commands.ATTACK, data, id: socketId });
+        acc.push({ type, data, id: socketId });
       }
       return acc;
     }, []);
   }
 
   private turn(players: IPlayer[], playerId: string): ITurn[] {
+    const type = Commands.TURN;
+    const data = { currentPlayer: playerId };
+
     return players.reduce<ITurn[]>((acc, { socketId }) => {
-      const data = { currentPlayer: playerId };
-      const player = { type: Commands.TURN, data, id: socketId };
+      const player = { type, data, id: socketId };
       acc.push(player);
       return acc;
     }, []);

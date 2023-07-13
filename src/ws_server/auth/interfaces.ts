@@ -5,6 +5,11 @@ interface IUserData {
   index: string;
 }
 
+interface IWinnersData {
+  name: string;
+  wins: number;
+}
+
 interface IUserErrData {
   name: string;
   index: string;
@@ -25,10 +30,14 @@ interface IAuthControl {
 }
 
 interface IAuthService {
-  getUser(userId: string): void;
-  getAllUser(): void;
-  getUserBySocket(sockedId: string): void;
-  createUser(userData: IUserData): void;
+  getUser(userId: string): IUserData | undefined;
+  getUserBySocket(sockedId: string): IUserData | undefined;
+  getSocketId(userId: string): string | undefined;
+  createUser(userData: IUserData): IUserData;
+  updateUser(userData: IUserData): IUserData | undefined;
+  getWinners(): false | IWinnersData[];
+  addWinner(data: IWinnersData): IWinnersData;
+  updateWinner(playerId: string): false | IWinnersData[];
 }
 
 export {
@@ -38,4 +47,5 @@ export {
   IAuth,
   IAuthControl,
   IAuthService,
+  IWinnersData,
 };

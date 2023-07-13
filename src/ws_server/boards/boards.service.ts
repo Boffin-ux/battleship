@@ -58,7 +58,7 @@ export class BoardsService implements IBoardsService {
     return playerId;
   }
 
-  getPlayerShips(gameId: string, playerId: string) {
+  private getPlayerShips(gameId: string, playerId: string) {
     const board = this.getBoard(gameId);
     const player = board?.players?.find(
       (player) => player.indexPlayer === playerId,
@@ -66,7 +66,7 @@ export class BoardsService implements IBoardsService {
     return player;
   }
 
-  checkPosition(gameId: string, playerId: string, position: IPosition) {
+  private checkPosition(gameId: string, playerId: string, position: IPosition) {
     const playerShips = this.getPlayerShips(gameId, playerId);
     return playerShips?.damageShips.find((ship) =>
       ship.position.some(({ x, y }) => x === position.x && y === position.y),
@@ -127,5 +127,10 @@ export class BoardsService implements IBoardsService {
       playerShots.shots = [...playerShots.shots, shotsShips];
     }
     return true;
+  }
+
+  availableShips(gameId: string, playerId: string) {
+    const playerShips = this.getPlayerShips(gameId, playerId);
+    return playerShips?.damageShips.some((ship) => ship.length > 0);
   }
 }

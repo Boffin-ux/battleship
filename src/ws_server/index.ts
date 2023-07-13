@@ -56,7 +56,10 @@ export class WsServer implements IWsServer {
     for (const playerData of convertData) {
       const convertToStr = this.toStringData(playerData);
 
-      if (playerData.type === Commands.UPDATE_ROOM) {
+      if (
+        playerData.type === Commands.UPDATE_ROOM ||
+        playerData.type === Commands.UPDATE_WINNERS
+      ) {
         this.webSocket.clients.forEach((client) => {
           if (client.readyState === WebSocket.OPEN) {
             client.send(convertToStr);
