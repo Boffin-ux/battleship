@@ -21,14 +21,17 @@ interface IBoardsService {
   updateGameShots(gameId: string, player: IPlayerShots): IShotsData | undefined;
   getGameShots(gameId: string): IShotsData | undefined;
   deleteGameShots(gameId: string): boolean;
-}
-
-type TBoardsData = IStartGameData | IShipsData | ITurnData;
-
-interface IBoards {
-  type: string;
-  data: TBoardsData;
-  id: string;
+  getPlayerShots(gameId: string, playerId: string): IPlayerShots | undefined;
+  checkPlayerShot(
+    gameId: string,
+    playerId: string,
+    coords: IPosition,
+  ): boolean | undefined;
+  addPlayerShot(
+    gameId: string,
+    playerId: string,
+    shotsShips: IShotsShips,
+  ): boolean;
 }
 
 interface IBoardsData {
@@ -115,8 +118,10 @@ interface IRandomAttack {
   indexPlayer: string;
 }
 
+type TBoardsControlData = IAttack | IRandomAttack | IShipsData;
+
 interface IBoardsControl {
-  run(type: string, data: IBoardsData, socketId: string): void;
+  run(type: string, data: TBoardsControlData, socketId: string): void;
 }
 
 type TShotStatus = ShotStatus.SHOT | ShotStatus.MISS | ShotStatus.KILLED;
@@ -148,7 +153,6 @@ export {
   IAttack,
   IRandomAttack,
   IBoardsService,
-  IBoards,
   IShips,
   IPosition,
   IAttackAnswer,
@@ -159,4 +163,5 @@ export {
   IShotsShips,
   TShotStatus,
   TAnswerReduce,
+  TBoardsControlData,
 };

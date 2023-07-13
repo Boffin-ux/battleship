@@ -126,5 +126,6 @@ export class BoardsService implements IBoardsService {
     if (playerShots) {
       playerShots.shots = [...playerShots.shots, shotsShips];
     }
+    return true;
   }
 }

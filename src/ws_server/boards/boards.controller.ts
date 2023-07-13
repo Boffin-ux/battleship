@@ -10,15 +10,13 @@ import {
   IRandomAttack,
   IShipsData,
   IPlayer,
-  IBoards,
   IShips,
   IPosition,
   IAttackAnswer,
   IAttackData,
   IDamageShips,
+  TBoardsControlData,
 } from './interfaces';
-
-type TRun = IBoards | undefined | void | (IStartGame | ITurn)[];
 
 export class BoardsController implements IBoardsControl {
   private boards: BoardsService;
@@ -27,35 +25,42 @@ export class BoardsController implements IBoardsControl {
     this.boards = new BoardsService();
   }
 
-  run(type: string, data, socketId: string) {
+  run(type: string, data: TBoardsControlData, socketId: string) {
     switch (type) {
       case Commands.ADD_SHIPS:
-        return this.addShips(data, socketId);
+        return this.addShips(data as IShipsData, socketId);
       case Commands.ATTACK:
         return this.attack(data);
       case Commands.RANDOM_ATTACK:
-        return this.randomAttack(data);
+        return this.attack(data);
       default:
         return;
     }
   }
 
-  private attack(data: IAttack) {
-    const { gameId, x, y, indexPlayer } = data;
-    const position = { x, y };
+  private attack(data: IAttack | IRandomAttack) {
+    const { gameId, indexPlayer } = data;
+    const { x, y } = data as IAttack;
+    const position =
+      x !== undefined && y !== undefined ? { x, y } : this.getRandomPosition();
+
+    return this.takeShot(gameId, indexPlayer, position);
+  }
+
+  private getRandomPosition() {
+    const getRandomNumber = (min = 0, max = 9) => {
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    };
+    return { x: getRandomNumber(), y: getRandomNumber() };
+  }
+
+  private takeShot(gameId: string, indexPlayer: string, position: IPosition) {
     const getBoard = this.boards.getBoard(gameId);
     const enemyId = this.boards.getEnemyId(gameId, indexPlayer);
-    const checkShot = this.boards.checkPlayerShot(
-      gameId,
-      indexPlayer,
-      position,
-    );
 
     if (getBoard && enemyId) {
-      if (checkShot) {
-        return this.turn(getBoard.players, indexPlayer);
-      }
-
       if (getBoard.turnPlayerId !== enemyId) {
         const getShots = this.shot(position, gameId, enemyId, indexPlayer);
         const shots = this.answerAttack(getBoard.players, getShots);
@@ -63,6 +68,7 @@ export class BoardsController implements IBoardsControl {
 
         if (getShots instanceof Array || getShots.status === ShotStatus.SHOT) {
           turns = this.turn(getBoard.players, indexPlayer);
+
           this.boards.updateTurn(gameId, indexPlayer);
           return [...shots, ...turns];
         }
@@ -107,6 +113,7 @@ export class BoardsController implements IBoardsControl {
     gameId: string,
   ) {
     const { position, direction } = shotToShip;
+    const getShots = this.boards.getPlayerShots(gameId, currentPlayer);
     const startShip = position[0];
     const shipSize = position.length;
     const dx = direction ? 2 : shipSize + 1;
@@ -119,7 +126,10 @@ export class BoardsController implements IBoardsControl {
         const isKill = position.some(
           (coords) => coords.x === x && coords.y === y,
         );
-        if (checkRange && !isKill) {
+        const isShot = getShots?.shots.some(
+          ({ position }) => position.x === x && position.y === y,
+        );
+        if (checkRange && !isKill && !isShot) {
           result.push({ x, y });
         }
       }
@@ -140,27 +150,16 @@ export class BoardsController implements IBoardsControl {
     status = ShotStatus.KILLED,
   ) {
     position.forEach((coords) => {
-      this.boards.addPlayerShot(gameId, currentPlayer, {
-        position: coords,
-        status,
-      });
+      const shotsShips = { position: coords, status };
+      this.boards.addPlayerShot(gameId, currentPlayer, shotsShips);
     });
+
     return position.reduce<IAttackData[]>((acc, coords) => {
-      acc.push({
-        position: coords,
-        currentPlayer,
-        status,
-      });
+      const data = { position: coords, currentPlayer, status };
+      acc.push(data);
+
       return acc;
     }, []);
-  }
-
-  private randomAttack({ gameId, indexPlayer }: IRandomAttack) {
-    const getBoard = this.boards.getBoard(gameId);
-    const enemyId = this.boards.getEnemyId(gameId, indexPlayer);
-    if (getBoard && enemyId) {
-      return this.turn(getBoard.players, enemyId);
-    }
   }
 
   private addShips(shipsData: IShipsData, socketId: string) {
@@ -247,15 +246,8 @@ export class BoardsController implements IBoardsControl {
       socketId,
     };
 
-    const playerShots = {
-      playerId: indexPlayer,
-      shots: [],
-    };
-
-    this.boards.createGameShots({
-      gameId,
-      players: [playerShots],
-    });
+    const playerShots = { playerId: indexPlayer, shots: [] };
+    this.boards.createGameShots({ gameId, players: [playerShots] });
 
     return this.boards.createBoard({
       gameId,
@@ -274,12 +266,9 @@ export class BoardsController implements IBoardsControl {
       socketId: socketId,
     };
 
-    const playerShots = {
-      playerId: indexPlayer,
-      shots: [],
-    };
-
+    const playerShots = { playerId: indexPlayer, shots: [] };
     this.boards.updateGameShots(gameId, playerShots);
+
     return this.boards.updateBoard(gameId, player);
   }
 
@@ -296,15 +285,6 @@ export class BoardsController implements IBoardsControl {
     );
   }
 
-  private turn(players: IPlayer[], playerId: string): ITurn[] {
-    return players.reduce<ITurn[]>((acc, { socketId }) => {
-      const data = { currentPlayer: playerId };
-      const player = { type: Commands.TURN, data, id: socketId };
-      acc.push(player);
-      return acc;
-    }, []);
-  }
-
   private answerAttack(players: IPlayer[], data: IAttackData | IAttackData[]) {
     return players.reduce<IAttackAnswer[]>((acc, { socketId }) => {
       if (data instanceof Array) {
@@ -314,6 +294,15 @@ export class BoardsController implements IBoardsControl {
       } else {
         acc.push({ type: Commands.ATTACK, data, id: socketId });
       }
+      return acc;
+    }, []);
+  }
+
+  private turn(players: IPlayer[], playerId: string): ITurn[] {
+    return players.reduce<ITurn[]>((acc, { socketId }) => {
+      const data = { currentPlayer: playerId };
+      const player = { type: Commands.TURN, data, id: socketId };
+      acc.push(player);
       return acc;
     }, []);
   }
