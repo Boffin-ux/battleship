@@ -11,6 +11,7 @@ enum Commands {
   RANDOM_ATTACK = 'randomAttack',
   TURN = 'turn',
   FINISH = 'finish',
+  DISCONNECT = 'disconnect',
 }
 
 const MESSAGE = {

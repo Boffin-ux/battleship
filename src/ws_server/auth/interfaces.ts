@@ -1,3 +1,5 @@
+import { Commands } from '../constants';
+
 interface IUserData {
   socketId: string;
   name: string;
@@ -20,13 +22,13 @@ interface IUserErrData {
 type TUsersData = IUserData | IUserErrData;
 
 interface IAuth {
-  type: string;
+  type: Commands;
   data: TUsersData;
   id: string;
 }
 
 interface IAuthControl {
-  auth(type: string, data: IUserData, socketId: string): void;
+  auth(type: Commands, data: IUserData, socketId: string): void;
 }
 
 interface IAuthService {

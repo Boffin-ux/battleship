@@ -1,5 +1,5 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { IWsServer } from './interfaces';
+import { IWsServer, TSendData, TStringData } from './interfaces';
 import { CommandsGame } from './commandsGame';
 import { Commands, MESSAGE } from './constants';
 import { v4 as uuidv4 } from 'uuid';
@@ -28,28 +28,36 @@ export class WsServer implements IWsServer {
       ws.on('message', (rawData: string) => {
         const { type, data } = this.parseData(rawData);
         const convertData = this.controllers.runController(type, data, wsId);
-
-        if (convertData instanceof Array) {
-          this.sendMsgSockets(convertData);
-        } else if (convertData) {
-          const convertToStr = this.toStringData(convertData);
-          ws.send(convertToStr);
-
-          if (type === Commands.CREATE_ROOM) {
-            this.webSocket.clients.forEach((client) => {
-              if (client !== ws && client.readyState === WebSocket.OPEN) {
-                client.send(convertToStr);
-              }
-            });
-          }
-        }
+        this.sendMsg(convertData);
       });
 
-      ws.on('close', () => console.log(`${MESSAGE.CLIENT_EXIT} ${wsId}!`));
+      ws.on('close', () => {
+        console.log(`${MESSAGE.CLIENT_EXIT} ${wsId}!`);
+        const data = this.controllers.runController(
+          Commands.DISCONNECT,
+          wsId,
+          wsId,
+        );
+        this.sendMsg(data);
+      });
+
       ws.on('error', (err) => console.log('err:', err));
     });
 
     this.stopServer();
+  }
+
+  private sendMsg(convertData: TSendData) {
+    if (convertData instanceof Array) {
+      this.sendMsgSockets(convertData);
+    } else if (convertData) {
+      const convertToStr = this.toStringData(convertData);
+      this.webSocket.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(convertToStr);
+        }
+      });
+    }
   }
 
   private sendMsgSockets(convertData) {
@@ -78,7 +86,7 @@ export class WsServer implements IWsServer {
     }
   }
 
-  private toStringData(convertData) {
+  private toStringData(convertData: TStringData) {
     const { type, data, id } = convertData;
     const resData = JSON.stringify(data);
     return JSON.stringify({ type, data: resData, id });

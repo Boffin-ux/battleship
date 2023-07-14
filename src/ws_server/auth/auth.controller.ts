@@ -14,7 +14,7 @@ export class AuthController implements IAuthControl {
     this.updateRoom = updateRoom;
   }
 
-  auth(type: string, userData: IUserData, socketId: string) {
+  auth(type: Commands, userData: IUserData, socketId: string) {
     const { name, password, index } = userData;
     const user = this.usersDb.getUser(name);
     const winners = this.usersDb.getWinners();

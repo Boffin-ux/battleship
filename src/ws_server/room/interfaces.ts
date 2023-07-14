@@ -1,3 +1,5 @@
+import { Commands } from '../constants';
+
 interface IUserRoom {
   name: string;
   index: string;
@@ -29,14 +31,19 @@ interface IRoomService {
 }
 
 interface IRoom {
-  type: string;
+  type: Commands;
   data: TRoomsData;
   id: string;
 }
 
 interface IRoomControl {
-  run(type: string, data: IRoomReqData, socketId: string): void;
-  updateRoom(roomId?: string, userRoom?: IUserRoom): void;
+  run(
+    type: Commands,
+    data: IRoomReqData,
+    socketId: string,
+  ): IRoom | IRoom[] | undefined;
+  updateRoom(roomId?: string, userRoom?: IUserRoom): IRoom;
+  eventDisconnect(userName: string): IRoom | undefined;
 }
 
 export {

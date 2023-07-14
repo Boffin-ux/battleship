@@ -13,8 +13,7 @@ export class RoomService implements IRoomService {
   }
 
   getRoomByUserName(userName: string): IRoomData | undefined {
-    const room = this.rooms.find((room) => {
-      const { roomUsers } = room;
+    const room = this.rooms.find(({ roomUsers }) => {
       return roomUsers.some((user) => user.name === userName);
     });
     return room;

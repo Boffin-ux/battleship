@@ -21,8 +21,8 @@ export class CommandsGame {
   }
 
   runController(
-    type: string,
-    data: TBoardsControlData | IUserData | IRoomReqData,
+    type: Commands,
+    data: TBoardsControlData | IUserData | IRoomReqData | string,
     socketId: string,
   ) {
     switch (type) {
@@ -35,8 +35,19 @@ export class CommandsGame {
       case Commands.ATTACK:
       case Commands.RANDOM_ATTACK:
         return this.boards.run(type, data as TBoardsControlData, socketId);
+      case Commands.DISCONNECT:
+        return this.disconnectSocket(socketId);
       default:
         return;
     }
+  }
+
+  private disconnectSocket(socketId: string) {
+    const user = this.usersDb.getUserBySocket(socketId);
+    const room = user && this.room.eventDisconnect(user.name);
+    const boardData = user && this.boards.eventDisconnect(user.index);
+
+    if (room) return room;
+    if (boardData) return boardData;
   }
 }

@@ -29,7 +29,7 @@ export class BoardsController implements IBoardsControl {
     this.users = usersDb;
   }
 
-  run(type: string, data: TBoardsControlData, socketId: string) {
+  run(type: Commands, data: TBoardsControlData, socketId: string) {
     switch (type) {
       case Commands.ADD_SHIPS:
         return this.addShips(data as IShipsData, socketId);
@@ -341,5 +341,14 @@ export class BoardsController implements IBoardsControl {
       acc.push(player);
       return acc;
     }, []);
+  }
+
+  eventDisconnect(userId: string) {
+    const getBoard = this.boards.getBoardByUserId(userId);
+    const enemyId = getBoard && this.boards.getEnemyId(getBoard.gameId, userId);
+
+    if (getBoard && enemyId) {
+      return this.finishGame(getBoard.gameId, getBoard.players, enemyId);
+    }
   }
 }

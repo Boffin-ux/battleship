@@ -1,3 +1,4 @@
+import { Commands } from '../constants';
 import { ShotStatus } from './constants';
 
 interface IBoardsService {
@@ -73,7 +74,7 @@ interface IStartGameData {
 }
 
 interface IStartGame {
-  type: string;
+  type: Commands;
   data: IStartGameData;
   id: string;
 }
@@ -83,7 +84,7 @@ interface IFinishGameData {
 }
 
 interface IFinishGame {
-  type: string;
+  type: Commands;
   data: IFinishGameData;
   id: string;
 }
@@ -93,7 +94,7 @@ interface ITurnData {
 }
 
 interface ITurn {
-  type: string;
+  type: Commands;
   data: ITurnData;
   id: string;
 }
@@ -112,7 +113,7 @@ interface IAttackData {
 }
 
 interface IAttackAnswer {
-  type: string;
+  type: Commands;
   data: IAttackData | IAttackData[];
   id: string;
 }
@@ -125,7 +126,8 @@ interface IRandomAttack {
 type TBoardsControlData = IAttack | IRandomAttack | IShipsData;
 
 interface IBoardsControl {
-  run(type: string, data: TBoardsControlData, socketId: string): void;
+  run(type: Commands, data: TBoardsControlData, socketId: string): void;
+  eventDisconnect(userId: string): void;
 }
 
 type TShotStatus = ShotStatus.SHOT | ShotStatus.MISS | ShotStatus.KILLED;
@@ -144,9 +146,6 @@ interface IShotsData {
   gameId: string;
   players: IPlayerShots[];
 }
-
-type TAnswerReduce = IAttackAnswer[] | IStartGame[] | ITurn[] | IAttackAnswer[];
-type TSendResult = IFinishGame[] | IStartGame[];
 
 export {
   IBoardsData,
@@ -167,8 +166,6 @@ export {
   IPlayerShots,
   IShotsShips,
   TShotStatus,
-  TAnswerReduce,
   TBoardsControlData,
   IFinishGame,
-  TSendResult,
 };

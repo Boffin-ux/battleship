@@ -21,6 +21,12 @@ export class BoardsService implements IBoardsService {
     return this.boards.find((board) => board.gameId === gameId);
   }
 
+  getBoardByUserId(userId: string): IBoardsData | undefined {
+    return this.boards.find(({ players }) => {
+      return players.some((player) => player.indexPlayer === userId);
+    });
+  }
+
   createBoard(data: IBoardsData) {
     this.boards.push(data);
     return data;

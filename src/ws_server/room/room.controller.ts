@@ -18,7 +18,7 @@ export class RoomController implements IRoomControl {
     this.currentSocketId = '';
   }
 
-  run(type: string, reqData: IRoomReqData, socketId: string) {
+  run(type: Commands, reqData: IRoomReqData, socketId: string) {
     const { indexRoom } = reqData;
 
     this.currentSocketId = socketId;
@@ -114,13 +114,14 @@ export class RoomController implements IRoomControl {
   }
 
   private destroyRoom(roomId: string, roomIdEnemy?: string) {
-    const type = Commands.UPDATE_ROOM;
+    roomIdEnemy && this.roomDb.deleteRoom(roomIdEnemy);
+    this.roomDb.deleteRoom(roomId);
 
-    if (roomIdEnemy) {
-      this.roomDb.deleteRoom(roomIdEnemy);
-    }
+    return this.updateRoom();
+  }
 
-    const data = this.roomDb.deleteRoom(roomId);
-    return { type, data, id: this.currentSocketId };
+  eventDisconnect(userName: string) {
+    const getRoom = this.roomDb.getRoomByUserName(userName);
+    return getRoom && this.destroyRoom(getRoom?.roomId);
   }
 }
