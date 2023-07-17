@@ -53,4 +53,5 @@ export {
   IRoomControl,
   IRoom,
   IRoomReqData,
+  ICreateGame,
 };

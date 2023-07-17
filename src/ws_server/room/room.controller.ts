@@ -80,19 +80,7 @@ export class RoomController implements IRoomControl {
 
         if (usersRoom) {
           const { roomUsers } = usersRoom;
-          const idGame = uuidv4();
-
-          const players = (roomUsers as IUserRoom[]).reduce<IRoom[]>(
-            (acc, { index }) => {
-              const sockedId = this.users.getSocketId(index);
-              if (sockedId) {
-                acc.push(this.createGame(index, idGame, sockedId));
-              }
-              return acc;
-            },
-            [],
-          );
-
+          const players = this.createGame(roomUsers);
           const deleteRoom = this.destroyRoom(roomId, getRoomEnemy?.roomId);
           return [...players, deleteRoom];
         }
@@ -102,15 +90,18 @@ export class RoomController implements IRoomControl {
     return this.updateRoom();
   }
 
-  private createGame(
-    idPlayer: string,
-    idGame: string,
-    socketId: string,
-  ): IRoom {
+  private createGame(roomUsers: IUserRoom[]): IRoom[] {
+    const idGame = uuidv4();
     const type = Commands.CREATE_GAME;
-    const data = { idGame, idPlayer };
 
-    return { type, data, id: socketId };
+    return roomUsers.reduce<IRoom[]>((acc, { index }) => {
+      const data = { idGame, idPlayer: index };
+      const socketId = this.users.getSocketId(index);
+      if (socketId) {
+        acc.push({ type, data, id: socketId });
+      }
+      return acc;
+    }, []);
   }
 
   private destroyRoom(roomId: string, roomIdEnemy?: string) {
@@ -123,5 +114,11 @@ export class RoomController implements IRoomControl {
   eventDisconnect(userName: string) {
     const getRoom = this.roomDb.getRoomByUserName(userName);
     return getRoom && this.destroyRoom(getRoom?.roomId);
+  }
+
+  eventBot(userName: string, roomUsers: IUserRoom[]) {
+    const room = this.eventDisconnect(userName);
+    const game = this.createGame(roomUsers);
+    return room ? [room, ...game] : game;
   }
 }

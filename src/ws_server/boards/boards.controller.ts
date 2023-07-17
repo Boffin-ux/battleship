@@ -1,7 +1,7 @@
 import { AuthService } from '../auth/auth.service';
 import { Commands } from '../constants';
 import { BoardsService } from './boards.service';
-import { ShotStatus } from './constants';
+import { ShotStatus, BOT_DATA } from './constants';
 
 import {
   IBoardsControl,
@@ -18,6 +18,8 @@ import {
   IDamageShips,
   TBoardsControlData,
   IFinishGame,
+  IBoardsData,
+  TResultAttack,
 } from './interfaces';
 
 export class BoardsController implements IBoardsControl {
@@ -45,50 +47,119 @@ export class BoardsController implements IBoardsControl {
   private attack(data: IAttack | IRandomAttack) {
     const { gameId, indexPlayer } = data;
     const { x, y } = data as IAttack;
+
     const position =
-      x !== undefined && y !== undefined ? { x, y } : this.getRandomPosition();
+      x !== undefined && y !== undefined
+        ? { x, y }
+        : this.randomCoords(gameId, indexPlayer);
 
-    return this.takeShot(gameId, indexPlayer, position);
-  }
-
-  private getRandomPosition() {
-    const getRandomNumber = (min = 0, max = 9) => {
-      min = Math.ceil(min);
-      max = Math.floor(max);
-      return Math.floor(Math.random() * (max - min + 1)) + min;
-    };
-    return { x: getRandomNumber(), y: getRandomNumber() };
-  }
-
-  private takeShot(gameId: string, indexPlayer: string, position: IPosition) {
     const getBoard = this.boards.getBoard(gameId);
     const enemyId = this.boards.getEnemyId(gameId, indexPlayer);
 
     if (getBoard && enemyId) {
-      if (getBoard.turnPlayerId !== enemyId) {
-        const getShots = this.shot(position, gameId, enemyId, indexPlayer);
-        const shots = this.answerAttack(getBoard.players, getShots);
+      const isBot = this.checkBot(enemyId);
+
+      if (isBot) {
+        const player = this.takeShot(
+          gameId,
+          indexPlayer,
+          position,
+          enemyId,
+          getBoard,
+        );
+        const bot = this.botAttack(gameId, enemyId, indexPlayer, getBoard);
+        return player && bot ? [...player, ...bot] : player;
+      }
+      return this.takeShot(gameId, indexPlayer, position, enemyId, getBoard);
+    }
+  }
+
+  private randomCoords(gameId: string, indexPlayer: string) {
+    const getRandomPosition = () => {
+      const getRandomNumber = (min = 0, max = 9) => {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+      };
+      return { x: getRandomNumber(), y: getRandomNumber() };
+    };
+
+    const coords = getRandomPosition();
+    const getShots = this.boards.checkPlayerShot(gameId, indexPlayer, coords);
+
+    return getShots ? this.randomCoords(gameId, indexPlayer) : coords;
+  }
+
+  private botAttack(
+    gameId: string,
+    botId: string,
+    indexPlayer: string,
+    board: IBoardsData,
+  ) {
+    const result: TResultAttack[] = [];
+
+    const attacks = () => {
+      const position: IPosition = this.randomCoords(gameId, botId);
+      const attack = this.takeShot(gameId, botId, position, indexPlayer, board);
+
+      if (attack) {
+        result.push(attack);
+        const getBoard = this.boards.getBoard(gameId);
+        if (getBoard?.turnPlayerId === botId) {
+          attacks();
+        }
+        return;
+      }
+      return;
+    };
+
+    attacks();
+    return result.length > 0 ? result.flat() : undefined;
+  }
+
+  private checkBot(playerId: string) {
+    const getPlayer = this.users.getUserById(playerId);
+    return getPlayer?.name.startsWith(BOT_DATA.name) ? true : false;
+  }
+
+  private takeShot(
+    gameId: string,
+    indexPlayer: string,
+    position: IPosition,
+    enemyId: string,
+    board: IBoardsData,
+  ) {
+    if (board.turnPlayerId !== enemyId) {
+      const checkShot = this.boards.checkPlayerShot(
+        gameId,
+        indexPlayer,
+        position,
+      );
+      if (checkShot) {
+        this.boards.updateTurn(gameId, enemyId);
+        return this.turn(board.players, enemyId);
+      }
+
+      const getShots = this.shot(position, gameId, enemyId, indexPlayer);
+      const shots = this.answerAttack(board.players, getShots);
+      let turns = this.turn(board.players, enemyId);
+
+      if (getShots instanceof Array || getShots.status === ShotStatus.SHOT) {
         const availableShips = this.boards.availableShips(gameId, enemyId);
-        let turns = this.turn(getBoard.players, enemyId);
 
-        if (getShots instanceof Array || getShots.status === ShotStatus.SHOT) {
-          if (!availableShips) {
-            const finish = this.finishGame(
-              gameId,
-              getBoard.players,
-              indexPlayer,
-            );
-            return [...shots, ...finish];
-          }
-
-          turns = this.turn(getBoard.players, indexPlayer);
-          this.boards.updateTurn(gameId, indexPlayer);
-          return [...shots, ...turns];
+        if (!availableShips) {
+          const finish = this.finishGame(gameId, board.players, indexPlayer);
+          return [...shots, ...finish];
         }
 
-        this.boards.updateTurn(gameId, enemyId);
+        turns = this.turn(board.players, indexPlayer);
+        this.boards.updateTurn(gameId, indexPlayer);
+
         return [...shots, ...turns];
       }
+
+      this.boards.updateTurn(gameId, enemyId);
+      return [...shots, ...turns];
     }
   }
 
@@ -117,6 +188,12 @@ export class BoardsController implements IBoardsControl {
       const miss = this.missPosition(shotToShip, currentPlayer, gameId);
       return [...kill, ...miss];
     }
+
+    this.boards.addPlayerShot(gameId, currentPlayer, {
+      position,
+      status: ShotStatus.MISS,
+    });
+
     return data;
   }
 
@@ -126,7 +203,6 @@ export class BoardsController implements IBoardsControl {
     gameId: string,
   ) {
     const { position, direction } = shotToShip;
-    const getShots = this.boards.getPlayerShots(gameId, currentPlayer);
     const startShip = position[0];
     const shipSize = position.length;
     const dx = direction ? 2 : shipSize + 1;
@@ -136,12 +212,12 @@ export class BoardsController implements IBoardsControl {
     for (let y = startShip.y - 1; y < startShip.y + dy; y++) {
       for (let x = startShip.x - 1; x < startShip.x + dx; x++) {
         const checkRange = x >= 0 && y >= 0 && x < 10 && y < 10;
+        const pos = { x, y };
         const isKill = position.some(
-          (coords) => coords.x === x && coords.y === y,
+          (coords) => coords.x === pos.x && coords.y === pos.y,
         );
-        const isShot = getShots?.shots.some(
-          ({ position }) => position.x === x && position.y === y,
-        );
+        const isShot = this.boards.checkPlayerShot(gameId, currentPlayer, pos);
+
         if (checkRange && !isKill && !isShot) {
           result.push({ x, y });
         }
@@ -178,16 +254,21 @@ export class BoardsController implements IBoardsControl {
   private addShips(shipsData: IShipsData, socketId: string) {
     const { gameId, indexPlayer } = shipsData;
     const getBoard = this.boards.getBoard(gameId);
-    const getGameShots = this.boards.getGameShots(gameId);
 
-    if (getBoard && getGameShots) {
-      const updateBoard = this.updateBoard(shipsData, socketId);
+    if (getBoard) {
       const enemyId = this.boards.getEnemyId(gameId, indexPlayer);
 
-      if (updateBoard && enemyId) {
-        const game = this.startGame(updateBoard.players);
-        const turn = this.turn(updateBoard.players, enemyId);
-        return [...game, ...turn];
+      if (enemyId) {
+        const isBot = this.checkBot(enemyId);
+        const startPlayerId = isBot ? indexPlayer : enemyId;
+
+        const updateBoard = this.updateBoard(shipsData, socketId, isBot);
+
+        if (updateBoard) {
+          const game = this.startGame(updateBoard.players);
+          const turn = this.turn(updateBoard.players, startPlayerId);
+          return [...game, ...turn];
+        }
       }
     }
 
@@ -269,19 +350,19 @@ export class BoardsController implements IBoardsControl {
     });
   }
 
-  private updateBoard(shipsData: IShipsData, socketId: string) {
+  private updateBoard(shipsData: IShipsData, socketId: string, isBot: boolean) {
     const { gameId, ships, indexPlayer } = shipsData;
     const damageShips = ships.map((ship) => this.convertShips([ship]));
     const player = {
       ships,
       damageShips,
       indexPlayer,
-      socketId: socketId,
+      socketId,
     };
 
+    isBot && this.boards.updateTurn(gameId, indexPlayer);
     const playerShots = { playerId: indexPlayer, shots: [] };
     this.boards.updateGameShots(gameId, playerShots);
-
     return this.boards.updateBoard(gameId, player);
   }
 
@@ -350,5 +431,9 @@ export class BoardsController implements IBoardsControl {
     if (getBoard && enemyId) {
       return this.finishGame(getBoard.gameId, getBoard.players, enemyId);
     }
+  }
+
+  eventBot(botData: IShipsData, socketId: string) {
+    return this.addShips(botData, socketId);
   }
 }

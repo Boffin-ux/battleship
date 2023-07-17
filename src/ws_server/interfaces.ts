@@ -13,19 +13,15 @@ interface IWsServer {
 }
 
 type TSendData =
-  | IRoom
-  | { type: Commands; data: IUserData; id: string }
-  | (
-      | IRoom
-      | { type: Commands; data: false | IWinnersData[] }
-      | { type: Commands; data: TUsersData; id: string }
-    )[]
   | (IStartGame | ITurn)[]
-  | (ITurn | IAttackAnswer)[]
+  | IRoom
+  | (IRoom | { type: Commands; data: false | IWinnersData[] })[]
   | (
+      | ITurn
       | IAttackAnswer
       | IFinishGame
       | { type: Commands; data: false | IWinnersData[] }
+      | undefined
     )[]
   | undefined;
 

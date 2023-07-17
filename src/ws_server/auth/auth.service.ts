@@ -9,6 +9,10 @@ export class AuthService implements IAuthService {
     this.winners = [];
   }
 
+  getUsersCount(): number {
+    return this.users.length;
+  }
+
   getUser(name: string): IUserData | undefined {
     return this.users.find((user) => user.name === name);
   }

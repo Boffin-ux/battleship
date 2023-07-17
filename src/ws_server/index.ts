@@ -26,7 +26,7 @@ export class WsServer implements IWsServer {
       console.log(`${MESSAGE.CLIENT_CONNECT} ${wsId}!`);
 
       ws.on('message', (rawData: string) => {
-        const { type, data } = this.parseData(rawData);
+        const { type, data } = this.parseData(rawData.toString());
         const convertData = this.controllers.runController(type, data, wsId);
         this.sendMsg(convertData);
       });

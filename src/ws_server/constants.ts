@@ -12,6 +12,7 @@ enum Commands {
   TURN = 'turn',
   FINISH = 'finish',
   DISCONNECT = 'disconnect',
+  SINGLE_PLAY = 'single_play',
 }
 
 const MESSAGE = {

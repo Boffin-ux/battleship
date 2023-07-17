@@ -1,3 +1,4 @@
+import { IWinnersData } from '../auth/interfaces';
 import { Commands } from '../constants';
 import { ShotStatus } from './constants';
 
@@ -147,6 +148,18 @@ interface IShotsData {
   players: IPlayerShots[];
 }
 
+type TResultAttack =
+  | (
+      | IFinishGame
+      | IAttackAnswer
+      | {
+          type: Commands;
+          data: false | IWinnersData[];
+        }
+    )[]
+  | (ITurn | IAttackAnswer)[]
+  | undefined;
+
 export {
   IBoardsData,
   IShipsData,
@@ -168,4 +181,5 @@ export {
   TShotStatus,
   TBoardsControlData,
   IFinishGame,
+  TResultAttack,
 };
